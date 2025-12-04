@@ -49,13 +49,13 @@ extension TestScheduler {
         let allExceptLast = timelines[0 ..< timelines.count - 1]
 
         return (allExceptLast.map { $0 + "|" } + [timelines.last!])
-            .filter { $0.characters.count > 0 }
+            .filter { $0.count > 0 }
             .map { timeline -> [Recorded<Event<T>>] in
                 let segments = timeline.components(separatedBy:"-")
                 let (time: _, events: events) = segments.reduce((time: 0, events: [RecordedEvent]())) { state, event in
-                    let tickIncrement = event.characters.count + 1
+                    let tickIncrement = event.count + 1
 
-                    if event.characters.count == 0 {
+                    if event.count == 0 {
                         return (state.time + tickIncrement, state.events)
                     }
 
@@ -123,7 +123,7 @@ extension TestScheduler {
      - returns: Observable sequence specified by timeline and values.
     */
     func createObservable<T>(_ events: [Recorded<Event<T>>]) -> Observable<T> {
-        return createObservable([events])
+        createObservable([events])
     }
 
     /**
@@ -186,8 +186,8 @@ extension TestScheduler {
      - parameter source: Observable sequence to observe.
      - returns: Observer that records all events for observable sequence.
     */
-    func record<O: ObservableConvertibleType>(source: O) -> TestableObserver<O.E> {
-        let observer = self.createObserver(O.E.self)
+    func record<Source: ObservableConvertibleType>(source: Source) -> TestableObserver<Source.Element> {
+        let observer = self.createObserver(Source.Element.self)
         let disposable = source.asObservable().bind(to: observer)
         self.scheduleAt(100000) {
             disposable.dispose()

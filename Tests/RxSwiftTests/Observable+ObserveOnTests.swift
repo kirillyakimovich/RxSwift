@@ -10,12 +10,7 @@ import XCTest
 import RxSwift
 import RxBlocking
 import RxTest
-
-import class Foundation.NSLock
-import class Foundation.NSError
-import class Foundation.NSCondition
-import class Foundation.OperationQueue
-import class Foundation.Thread
+import Foundation
 
 class ObservableObserveOnTestBase : RxTest {
     var lock = NSLock()
@@ -47,7 +42,7 @@ extension ObservableObserveOnTest {
         let disposable = tests(scheduler)
         let expectation = self.expectation(description: "Wait for all tests to complete")
 
-        _ = scheduler.schedule(()) { s in
+        _ = scheduler.schedule(()) { _ in
             expectation.fulfill()
             return Disposables.create()
         }
@@ -80,14 +75,12 @@ extension ObservableObserveOnTest {
 
         runDispatchQueueSchedulerTests { scheduler in
             let observable = Observable.just(0)
-                .observeOn(scheduler)
-            return observable.subscribe(onNext: { n in
+                .observe(on:scheduler)
+            return observable.subscribe(onNext: { _ in
                 didExecute = true
                 XCTAssert(Thread.current !== unitTestsThread)
             })
         }
-
-
 
         XCTAssert(didExecute)
     }
@@ -97,7 +90,7 @@ extension ObservableObserveOnTest {
             runDispatchQueueSchedulerTests { scheduler in
                 XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 0)
                 let a = Observable.just(0)
-                .observeOn(scheduler)
+                .observe(on:scheduler)
                 XCTAssertTrue(a == a) // shut up swift compiler :(, we only need to keep this in memory
                 XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 1)
                 return Disposables.create()
@@ -107,15 +100,15 @@ extension ObservableObserveOnTest {
         }
 
         func testObserveOnDispatchQueue_DispatchQueueSchedulerIsSerial() {
-            var numberOfConcurrentEvents: AtomicInt = 0
-            var numberOfExecutions: AtomicInt = 0
+            let numberOfConcurrentEvents = AtomicInt(0)
+            let numberOfExecutions = AtomicInt(0)
             runDispatchQueueSchedulerTests { scheduler in
                 XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 0)
                 let action = { (s: Void) -> Disposable in
-                    XCTAssert(AtomicIncrement(&numberOfConcurrentEvents) == 1)
+                    XCTAssertEqual(increment(numberOfConcurrentEvents), 0)
                     self.sleep(0.1) // should be enough to block the queue, so if it's concurrent, it will fail
-                    XCTAssert(AtomicDecrement(&numberOfConcurrentEvents) == 0)
-                    let _ = AtomicIncrement(&numberOfExecutions)
+                    XCTAssertEqual(decrement(numberOfConcurrentEvents), 1)
+                    increment(numberOfExecutions)
                     return Disposables.create()
                 }
                 _ = scheduler.schedule((), action: action)
@@ -123,17 +116,17 @@ extension ObservableObserveOnTest {
                 return Disposables.create()
             }
 
-            XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 0)
-            XCTAssert(numberOfExecutions == 2)
+            XCTAssertEqual(Resources.numberOfSerialDispatchQueueObservables, 0)
+            XCTAssertEqual(globalLoad(numberOfExecutions), 2)
         }
     #endif
 
-    func testObserveOnDispatchQueue_DeadlockErrorImmediatelly() {
+    func testObserveOnDispatchQueue_DeadlockErrorImmediately() {
         var nEvents = 0
 
         runDispatchQueueSchedulerTests { scheduler in
-            let observable: Observable<Int> = Observable.error(testError).observeOn(scheduler)
-            return observable.subscribe(onError: { n in
+            let observable: Observable<Int> = Observable.error(testError).observe(on:scheduler)
+            return observable.subscribe(onError: { _ in
                 nEvents += 1
             })
         }
@@ -145,7 +138,7 @@ extension ObservableObserveOnTest {
         var nEvents = 0
 
         runDispatchQueueSchedulerTests { scheduler in
-            let observable: Observable<Int> = Observable.empty().observeOn(scheduler)
+            let observable: Observable<Int> = Observable.empty().observe(on:scheduler)
 
             return observable.subscribe(onCompleted: {
                 nEvents += 1
@@ -159,8 +152,8 @@ extension ObservableObserveOnTest {
         runDispatchQueueSchedulerTests { scheduler in
             let xs: Observable<Int> = Observable.never()
             return xs
-                .observeOn(scheduler)
-                .subscribe(onNext: { n in
+                .observe(on:scheduler)
+                .subscribe(onNext: { _ in
                     XCTAssert(false)
                 })
         }
@@ -172,7 +165,7 @@ extension ObservableObserveOnTest {
 
         runDispatchQueueSchedulerMultiplexedTests([
             { scheduler in
-                let subscription = (xs.observeOn(scheduler)).subscribe(observer)
+                let subscription = (xs.observe(on:scheduler)).subscribe(observer)
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.next(0))
 
@@ -180,7 +173,7 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0)
+                    .next(0)
                     ])
                 xs.on(.next(1))
                 xs.on(.next(2))
@@ -188,9 +181,9 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0),
-                    next(1),
-                    next(2)
+                    .next(0),
+                    .next(1),
+                    .next(2)
                     ])
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.completed)
@@ -198,10 +191,10 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0),
-                    next(1),
-                    next(2),
-                    completed()
+                    .next(0),
+                    .next(1),
+                    .next(2),
+                    .completed()
                     ])
                 XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
                 return Disposables.create()
@@ -215,14 +208,14 @@ extension ObservableObserveOnTest {
 
         runDispatchQueueSchedulerMultiplexedTests([
             { scheduler in
-                let subscription = (xs.observeOn(scheduler)).subscribe(observer)
+                let subscription = (xs.observe(on:scheduler)).subscribe(observer)
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.completed)
                 return subscription
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    completed()
+                    .completed()
                     ])
                 XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
                 return Disposables.create()
@@ -236,7 +229,7 @@ extension ObservableObserveOnTest {
 
         runDispatchQueueSchedulerMultiplexedTests([
             { scheduler in
-                let subscription = (xs.observeOn(scheduler)).subscribe(observer)
+                let subscription = (xs.observe(on:scheduler)).subscribe(observer)
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.next(0))
 
@@ -244,7 +237,7 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0)
+                    .next(0)
                     ])
                 xs.on(.next(1))
                 xs.on(.next(2))
@@ -252,9 +245,9 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0),
-                    next(1),
-                    next(2)
+                    .next(0),
+                    .next(1),
+                    .next(2)
                     ])
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.error(testError))
@@ -262,10 +255,10 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0),
-                    next(1),
-                    next(2),
-                    error(testError)
+                    .next(0),
+                    .next(1),
+                    .next(2),
+                    .error(testError)
                     ])
                 XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
                 return Disposables.create()
@@ -280,7 +273,7 @@ extension ObservableObserveOnTest {
 
         runDispatchQueueSchedulerMultiplexedTests([
             { scheduler in
-                subscription = (xs.observeOn(scheduler)).subscribe(observer)
+                subscription = (xs.observe(on:scheduler)).subscribe(observer)
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
                 xs.on(.next(0))
 
@@ -288,7 +281,7 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0)
+                    .next(0)
                     ])
 
                 XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
@@ -301,7 +294,7 @@ extension ObservableObserveOnTest {
             },
             { scheduler in
                 XCTAssertEqual(observer.events, [
-                    next(0),
+                    .next(0),
                     ])
                 XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
                 return Disposables.create()
@@ -311,14 +304,117 @@ extension ObservableObserveOnTest {
 
     #if TRACE_RESOURCES
         func testObserveOnSerialReleasesResourcesOnComplete() {
-            _ = Observable<Int>.just(1).observeOn(MainScheduler.instance).subscribe()
+            _ = Observable<Int>.just(1).observe(on:MainScheduler.instance).subscribe()
         }
 
         func testObserveOnSerialReleasesResourcesOnError() {
-            _ = Observable<Int>.error(testError).observeOn(MainScheduler.instance).subscribe()
+            _ = Observable<Int>.error(testError).observe(on:MainScheduler.instance).subscribe()
         }
     #endif
 }
+
+// Because of `self.wait(for: [blockingTheSerialScheduler], timeout: 1.0)`.
+// Testing this on Unix should be enough.
+#if !os(Linux)
+// Test event is cancelled properly.
+extension ObservableObserveOnTest {
+    func testDisposeWithEnqueuedElement() {
+        let emit = PublishSubject<Int>()
+        let blockingTheSerialScheduler = self.expectation(description: "blocking")
+        let unblock = self.expectation(description: "unblock")
+        let testDone = self.expectation(description: "test done")
+        let scheduler = SerialDispatchQueueScheduler(qos: .default)
+        var events: [Event<Int>] = []
+        let subscription = emit.observe(on:scheduler).subscribe { update in
+            switch update {
+            case .next(let value):
+                if value == 0 {
+                    blockingTheSerialScheduler.fulfill()
+                    self.wait(for: [unblock], timeout: 1.0)
+                }
+            default:
+                break
+            }
+            events.append(update)
+        }
+        emit.on(.next(0))
+        self.wait(for: [blockingTheSerialScheduler], timeout: 1.0)
+        emit.on(.next(1))
+        _ = scheduler.schedule(()) { _ in
+            testDone.fulfill()
+            return Disposables.create()
+        }
+        subscription.dispose()
+        unblock.fulfill()
+        self.wait(for: [testDone], timeout: 1.0)
+        XCTAssertEqual(events, [.next(0)])
+    }
+
+    func testDisposeWithEnqueuedError() {
+        let emit = PublishSubject<Int>()
+        let blockingTheSerialScheduler = self.expectation(description: "blocking")
+        let unblock = self.expectation(description: "unblock")
+        let testDone = self.expectation(description: "test done")
+        let scheduler = SerialDispatchQueueScheduler(qos: .default)
+        var events: [Event<Int>] = []
+        let subscription = emit.observe(on:scheduler).subscribe { update in
+            switch update {
+            case .next(let value):
+                if value == 0 {
+                    blockingTheSerialScheduler.fulfill()
+                    self.wait(for: [unblock], timeout: 1.0)
+                }
+            default:
+                break
+            }
+            events.append(update)
+        }
+        emit.on(.next(0))
+        self.wait(for: [blockingTheSerialScheduler], timeout: 1.0)
+        emit.on(.error(TestError.dummyError))
+        _ = scheduler.schedule(()) { _ in
+            testDone.fulfill()
+            return Disposables.create()
+        }
+        subscription.dispose()
+        unblock.fulfill()
+        self.wait(for: [testDone], timeout: 1.0)
+        XCTAssertEqual(events, [.next(0)])
+    }
+
+    func testDisposeWithEnqueuedCompleted() {
+        let emit = PublishSubject<Int>()
+        let blockingTheSerialScheduler = self.expectation(description: "blocking")
+        let unblock = self.expectation(description: "unblock")
+        let testDone = self.expectation(description: "test done")
+        let scheduler = SerialDispatchQueueScheduler(qos: .default)
+        var events: [Event<Int>] = []
+        let subscription = emit.observe(on:scheduler).subscribe { update in
+            switch update {
+            case .next(let value):
+                if value == 0 {
+                    blockingTheSerialScheduler.fulfill()
+                    self.wait(for: [unblock], timeout: 1.0)
+                }
+            default:
+                break
+            }
+            events.append(update)
+        }
+        emit.on(.next(0))
+        self.wait(for: [blockingTheSerialScheduler], timeout: 1.0)
+        emit.on(.completed)
+        _ = scheduler.schedule(()) { _ in
+            testDone.fulfill()
+            return Disposables.create()
+        }
+        subscription.dispose()
+        unblock.fulfill()
+        self.wait(for: [testDone], timeout: 1.0)
+        XCTAssertEqual(events, [.next(0)])
+    }
+}
+#endif
 
 // observeOn concurrent scheduler
 class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBase {
@@ -334,7 +430,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
             let scheduler = self.createScheduler()
 
             XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 0)
-            _ = Observable.just(0).observeOn(scheduler)
+            _ = Observable.just(0).observe(on:scheduler)
             self.sleep(0.1)
             XCTAssert(Resources.numberOfSerialDispatchQueueObservables == 0)
         }
@@ -345,7 +441,14 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
         let stop = BehaviorSubject(value: 0)
 
+        #if os(Linux)
+        /// A regression in the Swift 5.1 compiler causes a hang
+        /// when using OperationQueue concurrency:
+        /// https://bugs.swift.org/browse/SR-11647
+        let scheduler = ConcurrentDispatchQueueScheduler(qos: .default)
+        #else
         let scheduler = createScheduler()
+        #endif
 
         let condition = NSCondition()
 
@@ -396,8 +499,8 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
         let xs: Observable<Int> = Observable.never()
         let subscription = xs
-            .observeOn(scheduler)
-            .subscribe(onNext: { n in
+            .observe(on:scheduler)
+            .subscribe(onNext: { _ in
                 XCTAssert(false)
             })
 
@@ -412,14 +515,14 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
         let scheduler = createScheduler()
 
-        let subscription = (xs.observeOn(scheduler)).subscribe(observer)
+        let subscription = (xs.observe(on:scheduler)).subscribe(observer)
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.next(0))
 
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0)
+            .next(0)
             ])
         xs.on(.next(1))
         xs.on(.next(2))
@@ -427,9 +530,9 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0),
-            next(1),
-            next(2)
+            .next(0),
+            .next(1),
+            .next(2)
             ])
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.completed)
@@ -437,10 +540,10 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0),
-            next(1),
-            next(2),
-            completed()
+            .next(0),
+            .next(1),
+            .next(2),
+            .completed()
             ])
         XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
 
@@ -455,7 +558,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
         let scheduler = createScheduler()
 
-        _ = xs.observeOn(scheduler).subscribe(observer)
+        _ = xs.observe(on:scheduler).subscribe(observer)
 
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.completed)
@@ -463,7 +566,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            completed()
+            .completed()
             ])
         XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
     }
@@ -477,7 +580,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         let scheduler = createScheduler()
 
         let res = xs
-            .observeOn(scheduler)
+            .observe(on:scheduler)
             .map { v -> Int in
                 if v == 0 {
                     self.sleep(0.1) // 100 ms is enough
@@ -495,9 +598,9 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.3)
 
         XCTAssertEqual(observer.events, [
-            next(0),
-            next(1),
-            completed()
+            .next(0),
+            .next(1),
+            .completed()
             ])
         XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
 
@@ -512,7 +615,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
         let scheduler = createScheduler()
 
-        _ = xs.observeOn(scheduler).subscribe(observer)
+        _ = xs.observe(on:scheduler).subscribe(observer)
 
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.next(0))
@@ -520,7 +623,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0)
+            .next(0)
             ])
         xs.on(.next(1))
         xs.on(.next(2))
@@ -528,9 +631,9 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0),
-            next(1),
-            next(2)
+            .next(0),
+            .next(1),
+            .next(2)
             ])
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.error(testError))
@@ -538,10 +641,10 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0),
-            next(1),
-            next(2),
-            error(testError)
+            .next(0),
+            .next(1),
+            .next(2),
+            .error(testError)
             ])
         XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
 
@@ -552,14 +655,14 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         let observer = PrimitiveMockObserver<Int>()
 
         let scheduler = createScheduler()
-        let subscription = xs.observeOn(scheduler).subscribe(observer)
+        let subscription = xs.observe(on:scheduler).subscribe(observer)
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
         xs.on(.next(0))
 
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0)
+            .next(0)
             ])
 
         XCTAssert(xs.subscriptions == [SubscribedToHotObservable])
@@ -571,7 +674,7 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
         sleep(0.1)
 
         XCTAssertEqual(observer.events, [
-            next(0),
+            .next(0),
             ])
         XCTAssert(xs.subscriptions == [UnsunscribedFromHotObservable])
     }
@@ -579,13 +682,13 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
     #if TRACE_RESOURCES
         func testObserveOnReleasesResourcesOnComplete() {
             let testScheduler = TestScheduler(initialClock: 0)
-            _ = Observable<Int>.just(1).observeOn(testScheduler).subscribe()
+            _ = Observable<Int>.just(1).observe(on:testScheduler).subscribe()
             testScheduler.start()
         }
         
         func testObserveOnReleasesResourcesOnError() {
             let testScheduler = TestScheduler(initialClock: 0)
-            _ = Observable<Int>.error(testError).observeOn(testScheduler).subscribe()
+            _ = Observable<Int>.error(testError).observe(on:testScheduler).subscribe()
             testScheduler.start()
         }
     #endif
@@ -593,6 +696,6 @@ class ObservableObserveOnTestConcurrentSchedulerTest: ObservableObserveOnTestBas
 
 final class ObservableObserveOnTestConcurrentSchedulerTest2 : ObservableObserveOnTestConcurrentSchedulerTest {
     override func createScheduler() -> ImmediateSchedulerType {
-        return ConcurrentDispatchQueueScheduler(qos: .default)
+        ConcurrentDispatchQueueScheduler(qos: .default)
     }
 }

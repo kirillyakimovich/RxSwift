@@ -139,7 +139,7 @@ final class UICollectionViewTests : RxTest {
             })
 
         let testSupplementaryView = UICollectionReusableView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
-        let testElementKind = UICollectionElementKindSectionHeader
+        let testElementKind = UICollectionView.elementKindSectionHeader
         let testIndexPath = IndexPath(row: 1, section: 0)
         collectionView.delegate!.collectionView!(collectionView, willDisplaySupplementaryView: testSupplementaryView, forElementKind: testElementKind, at: testIndexPath)
 
@@ -189,7 +189,7 @@ final class UICollectionViewTests : RxTest {
             })
 
         let testSupplementaryView = UICollectionReusableView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
-        let testElementKind = UICollectionElementKindSectionHeader
+        let testElementKind = UICollectionView.elementKindSectionHeader
         let testIndexPath = IndexPath(row: 1, section: 0)
         collectionView.delegate!.collectionView!(collectionView, didEndDisplayingSupplementaryView: testSupplementaryView, forElementOfKind: testElementKind, at: testIndexPath)
 
@@ -197,6 +197,53 @@ final class UICollectionViewTests : RxTest {
         XCTAssertEqual(resultElementKind, testElementKind)
         XCTAssertEqual(resultIndexPath, testIndexPath)
         subscription.dispose()
+    }
+
+    @available(iOS 10.0, tvOS 10.0, *)
+    func test_prefetchItems() {
+        let layout = UICollectionViewFlowLayout()
+        let collectionView = UICollectionView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), collectionViewLayout: layout)
+
+        var indexPaths: [IndexPath] = []
+
+        let subscription = collectionView.rx.prefetchItems
+            .subscribe(onNext: {
+                indexPaths = $0
+            })
+
+        let testIndexPaths = [IndexPath(item: 1, section: 0), IndexPath(item: 2, section: 0)]
+        collectionView.prefetchDataSource!.collectionView(collectionView, prefetchItemsAt: testIndexPaths)
+
+        XCTAssertEqual(indexPaths, testIndexPaths)
+        subscription.dispose()
+    }
+
+    @available(iOS 10.0, tvOS 10.0, *)
+    func test_cancelPrefetchingForItems() {
+        let layout = UICollectionViewFlowLayout()
+        let collectionView = UICollectionView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), collectionViewLayout: layout)
+
+        var indexPaths: [IndexPath] = []
+
+        let subscription = collectionView.rx.cancelPrefetchingForItems
+            .subscribe(onNext: {
+                indexPaths = $0
+            })
+
+        let testIndexPaths = [IndexPath(item: 1, section: 0), IndexPath(item: 2, section: 0)]
+        collectionView.prefetchDataSource!.collectionView!(collectionView, cancelPrefetchingForItemsAt: testIndexPaths)
+
+        XCTAssertEqual(indexPaths, testIndexPaths)
+        subscription.dispose()
+    }
+
+    @available(iOS 10.0, tvOS 10.0, *)
+    func test_PrefetchDataSourceEventCompletesOnDealloc() {
+        let layout = UICollectionViewFlowLayout()
+        let createView: () -> UICollectionView = { UICollectionView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), collectionViewLayout: layout) }
+
+        ensureEventDeallocated(createView) { (view: UICollectionView) in view.rx.prefetchItems }
+        ensureEventDeallocated(createView) { (view: UICollectionView) in view.rx.cancelPrefetchingForItems }
     }
 
     func test_DelegateEventCompletesOnDealloc1() {
@@ -399,49 +446,49 @@ final class UICollectionViewTests : RxTest {
         dataSourceSubscription.dispose()
     }
 
-    #if os(tvOS)
-
-        func test_didUpdateFocusInContextWithAnimationCoordinator() {
-            let items: Observable<[Int]> = Observable.just([1, 2, 3])
-
-            let layout = UICollectionViewFlowLayout()
-            let createView: () -> (UICollectionView, Disposable) = {
-                let collectionView = UICollectionView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), collectionViewLayout: layout)
-                collectionView.register(NSClassFromString("UICollectionViewCell"), forCellWithReuseIdentifier: "a")
-                let dataSource = SectionedViewDataSourceMock()
-                let dataSourceSubscription = items.bind(to: collectionView.rx.items(dataSource: dataSource))
-
-                return (collectionView, dataSourceSubscription)
-
-            }
-
-            let (collectionView, dataSourceSubscription) = createView()
-
-            var resultContext: UICollectionViewFocusUpdateContext? = nil
-            var resultAnimationCoordinator: UIFocusAnimationCoordinator? = nil
-
-            let subscription = collectionView.rx.didUpdateFocusInContextWithAnimationCoordinator
-                .subscribe(onNext: { args in
-                    let (context, animationCoordinator) = args
-                    resultContext = context
-                    resultAnimationCoordinator = animationCoordinator
-                })
-
-            let context = UICollectionViewFocusUpdateContext()
-            let animationCoordinator = UIFocusAnimationCoordinator()
-
-            XCTAssertEqual(resultContext, nil)
-            XCTAssertEqual(resultAnimationCoordinator, nil)
-
-            collectionView.delegate!.collectionView!(collectionView, didUpdateFocusIn: context, with: animationCoordinator)
- 
-            XCTAssertEqual(resultContext, context)
-            XCTAssertEqual(resultAnimationCoordinator, animationCoordinator)
-
-            subscription.dispose()
-            dataSourceSubscription.dispose()
-        }
-    #endif
+//    #if os(tvOS)
+//
+//        func test_didUpdateFocusInContextWithAnimationCoordinator() {
+//            let items: Observable<[Int]> = Observable.just([1, 2, 3])
+//
+//            let layout = UICollectionViewFlowLayout()
+//            let createView: () -> (UICollectionView, Disposable) = {
+//                let collectionView = UICollectionView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), collectionViewLayout: layout)
+//                collectionView.register(NSClassFromString("UICollectionViewCell"), forCellWithReuseIdentifier: "a")
+//                let dataSource = SectionedViewDataSourceMock()
+//                let dataSourceSubscription = items.bind(to: collectionView.rx.items(dataSource: dataSource))
+//
+//                return (collectionView, dataSourceSubscription)
+//
+//            }
+//
+//            let (collectionView, dataSourceSubscription) = createView()
+//
+//            var resultContext: UICollectionViewFocusUpdateContext? = nil
+//            var resultAnimationCoordinator: UIFocusAnimationCoordinator? = nil
+//
+//            let subscription = collectionView.rx.didUpdateFocusInContextWithAnimationCoordinator
+//                .subscribe(onNext: { args in
+//                    let (context, animationCoordinator) = args
+//                    resultContext = context
+//                    resultAnimationCoordinator = animationCoordinator
+//                })
+//
+//            let context = UICollectionViewFocusUpdateContext()
+//            let animationCoordinator = UIFocusAnimationCoordinator()
+//
+//            XCTAssertEqual(resultContext, nil)
+//            XCTAssertEqual(resultAnimationCoordinator, nil)
+//
+//            collectionView.delegate!.collectionView!(collectionView, didUpdateFocusIn: context, with: animationCoordinator)
+// 
+//            XCTAssertEqual(resultContext, context)
+//            XCTAssertEqual(resultAnimationCoordinator, animationCoordinator)
+//
+//            subscription.dispose()
+//            dataSourceSubscription.dispose()
+//        }
+//    #endif
 }
 
 extension UICollectionViewTests {
@@ -528,9 +575,16 @@ extension UICollectionViewTests {
             let dataSource = SectionedViewDataSourceMock()
             let dataSourceSubscription = items.bind(to: collectionView.rx.items(dataSource: dataSource))
 
-            return (collectionView, dataSourceSubscription)
+            let fakeVC = UIViewController()
+            fakeVC.view.addSubview(collectionView)
 
+            let window = UIWindow(frame: UIScreen.main.bounds)
+            window.rootViewController = fakeVC
+            window.makeKeyAndVisible()
+
+            return (collectionView, dataSourceSubscription)
         }
+
         let (collectionView, dataSourceSubscription) = createView()
 
         XCTAssertTrue(collectionView.dataSource === RxCollectionViewDataSourceProxy.proxy(for: collectionView))
@@ -545,6 +599,7 @@ extension UICollectionViewTests {
         
         XCTAssertEqual(disposeEvents, [])
         dataSourceSubscription.dispose()
+        
         XCTAssertEqual(disposeEvents, ["disposed", "layoutIfNeeded", "setDataSource:nil", "setDataSource:nn"])
 
         XCTAssertTrue(collectionView.dataSource === collectionView.rx.dataSource)

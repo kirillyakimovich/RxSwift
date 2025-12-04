@@ -8,7 +8,7 @@
 
 import RxSwift
 
-import struct Foundation.URL
+import Foundation
 
 struct WikipediaSearchResult: CustomDebugStringConvertible {
     let title: String
@@ -17,7 +17,7 @@ struct WikipediaSearchResult: CustomDebugStringConvertible {
 
     // tedious parsing part
     static func parseJSON(_ json: [AnyObject]) throws -> [WikipediaSearchResult] {
-        let rootArrayTyped: [[AnyObject]] = json.flatMap { $0 as? [AnyObject] }
+        let rootArrayTyped = json.compactMap { $0 as? [AnyObject] }
         
         guard rootArrayTyped.count == 3 else {
             throw WikipediaParseError
@@ -44,6 +44,6 @@ struct WikipediaSearchResult: CustomDebugStringConvertible {
 
 extension WikipediaSearchResult {
     var debugDescription: String {
-        return "[\(title)](\(URL))"
+        "[\(title)](\(URL))"
     }
 }

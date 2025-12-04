@@ -46,7 +46,8 @@ extension NSTextFieldTests {
                 name: NSControl.textDidChangeNotification,
                 object: textField,
                 userInfo: ["NSFieldEditor" : NSText()])
-            (textField.delegate as! NSObject).controlTextDidChange(notification)
+
+            textField.delegate?.controlTextDidChange?(notification)
 
             XCTAssertTrue(rxDidChange)
             XCTAssertTrue(delegate.didChange)
@@ -57,10 +58,11 @@ extension NSTextFieldTests {
 
 }
 
-fileprivate final class TextFieldDelegate: NSObject, NSTextFieldDelegate {
+private final class TextFieldDelegate: NSObject, NSTextFieldDelegate {
 
     var didChange = false
-    override func controlTextDidChange(_ notification: Notification) {
+
+    func controlTextDidChange(_ notification: Notification) {
         didChange = true
     }
 }

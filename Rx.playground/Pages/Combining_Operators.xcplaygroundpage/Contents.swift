@@ -1,8 +1,8 @@
 /*:
  > # IMPORTANT: To use **Rx.playground**:
  1. Open **Rx.xcworkspace**.
- 1. Build the **RxSwift-macOS** scheme (**Product** → **Build**).
- 1. Open **Rx** playground in the **Project navigator**.
+ 1. Build the **RxExample-macOS** scheme (**Product** → **Build**).
+ 1. Open **Rx** playground in the **Project navigator** (under RxExample project).
  1. Show the Debug Area (**View** → **Debug Area** → **Show Debug Area**).
  ----
  [Previous](@previous) - [Table of Contents](Table_of_Contents)
@@ -137,9 +137,9 @@ example("switchLatest") {
     let subject1 = BehaviorSubject(value: "⚽️")
     let subject2 = BehaviorSubject(value: "🍎")
     
-    let variable = Variable(subject1)
+    let subjectsSubject = BehaviorSubject(value: subject1)
         
-    variable.asObservable()
+    subjectsSubject.asObservable()
         .switchLatest()
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
@@ -147,14 +147,44 @@ example("switchLatest") {
     subject1.onNext("🏈")
     subject1.onNext("🏀")
     
-    variable.value = subject2
+    subjectsSubject.onNext(subject2)
     
     subject1.onNext("⚾️")
     
     subject2.onNext("🍐")
 }
 /*:
- > In this example, adding ⚾️ onto `subject1` after setting `variable.value` to `subject2` has no effect, because only the most recent inner `Observable` sequence (`subject2`) will emit elements.
+ > In this example, adding ⚾️ onto `subject1` after adding `subject2` to `subjectsSubject` has no effect, because only the most recent inner `Observable` sequence (`subject2`) will emit elements.
+
+ ----
+ ## `withLatestFrom`
+ Merges two observable sequences into one observable sequence by combining each element from the first source with the latest element from the second source, if any.
+ */
+example("withLatestFrom") {
+    let disposeBag = DisposeBag()
+    
+    let foodSubject = PublishSubject<String>()
+    let drinksSubject = PublishSubject<String>()
+    
+    foodSubject.asObservable()
+        .withLatestFrom(drinksSubject) { "\($0) + \($1)" }
+        .subscribe(onNext: { print($0) })
+        .disposed(by: disposeBag)
+    
+    foodSubject.onNext("🥗")
+    
+    drinksSubject.onNext("☕️")
+    foodSubject.onNext("🥐")
+    
+    drinksSubject.onNext("🍷")
+    foodSubject.onNext("🍔")
+    
+    foodSubject.onNext("🍟")
+    
+    drinksSubject.onNext("🍾")
+}
+/*:
+ > In this example 🥗 is not printed because `drinksSubject` did not emit any values before 🥗 was received. The last drink (🍾) will be printed whenever `foodSubject` will emit another event.
  */
 
 //: [Next](@next) - [Table of Contents](Table_of_Contents)

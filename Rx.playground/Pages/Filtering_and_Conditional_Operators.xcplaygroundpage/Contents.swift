@@ -1,8 +1,8 @@
 /*:
  > # IMPORTANT: To use **Rx.playground**:
  1. Open **Rx.xcworkspace**.
- 1. Build the **RxSwift-macOS** scheme (**Product** → **Build**).
- 1. Open **Rx** playground in the **Project navigator**.
+ 1. Build the **RxExample-macOS** scheme (**Product** → **Build**).
+ 1. Open **Rx** playground in the **Project navigator** (under RxExample project).
  1. Show the Debug Area (**View** → **Debug Area** → **Show Debug Area**).
  ----
  [Previous](@previous) - [Table of Contents](Table_of_Contents)
@@ -52,7 +52,7 @@ example("elementAt") {
     let disposeBag = DisposeBag()
     
     Observable.of("🐱", "🐰", "🐶", "🐸", "🐷", "🐵")
-        .elementAt(3)
+        .element(at: 3)
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
 }
@@ -126,7 +126,7 @@ example("takeWhile") {
     let disposeBag = DisposeBag()
     
     Observable.of(1, 2, 3, 4, 5, 6)
-        .takeWhile { $0 < 4 }
+        .take(while: { $0 < 4 })
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
 }
@@ -143,7 +143,7 @@ example("takeUntil") {
     let referenceSequence = PublishSubject<String>()
     
     sourceSequence
-        .takeUntil(referenceSequence)
+        .take(until: referenceSequence)
         .subscribe { print($0) }
         .disposed(by: disposeBag)
     
@@ -179,9 +179,9 @@ example("skip") {
  */
 example("skipWhile") {
     let disposeBag = DisposeBag()
-    
+
     Observable.of(1, 2, 3, 4, 5, 6)
-        .skipWhile { $0 < 4 }
+        .skip(while: { $0 < 4 })
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
 }
@@ -194,9 +194,9 @@ example("skipWhileWithIndex") {
     let disposeBag = DisposeBag()
     
     Observable.of("🐱", "🐰", "🐶", "🐸", "🐷", "🐵")
-        .skipWhileWithIndex { element, index in
-            index < 3
-        }
+        .enumerated()
+        .skip(while: { $0.index < 3 })
+        .map { $0.element }
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
 }
@@ -213,7 +213,7 @@ example("skipUntil") {
     let referenceSequence = PublishSubject<String>()
     
     sourceSequence
-        .skipUntil(referenceSequence)
+        .skip(until: referenceSequence)
         .subscribe(onNext: { print($0) })
         .disposed(by: disposeBag)
     

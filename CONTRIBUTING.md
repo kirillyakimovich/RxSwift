@@ -11,13 +11,13 @@ Please take the time to carefully read the following guide. These rules help mak
 
 ### General rules
 
-All contributions are handled via Pull Requests (PRs). Your PR _must_ target the `[develop](https://github.com/ReactiveX/RxSwift/tree/develop)` branch. This is the place where we aggregate all upcoming changes for the next release of RxSwift. Moreover, your PR _must_ pass all tests and provide a meaningful description of what it is about. We have bots looking at PRs and enforcing these rules.
+All contributions are handled via Pull Requests (PRs). Your PR _must_ target the `[main](https://github.com/ReactiveX/RxSwift/tree/main)` branch. This is the place where we aggregate all upcoming changes for the next release of RxSwift. Moreover, your PR _must_ pass all tests and provide a meaningful description of what it is about. We have bots looking at PRs and enforcing these rules.
 
 Before submitting a pull request please make sure **`./scripts/all-tests.sh`** is passing (exits with 0), otherwise we won't be able to pull your code.
 
-To be able to run `./scripts/all-tests.sh`, you'll need to install [xcpretty](https://github.com/supermarin/xcpretty).
+To be able to run `./scripts/all-tests.sh`, you'll need to install [xcbeautify](https://github.com/cpisciotta/xcbeautify).
 
-`sudo gem install xcpretty`
+`brew install xcbeautify`
 
 Once the tests pass, you can push your feature branch to your clone of the repository, then open a pull request. There are some best practices that will be followed during the development of this project for common good ([Gitflow](http://nvie.com/posts/a-successful-git-branching-model/) branching model).
 
@@ -25,7 +25,7 @@ Don't forget to update `CHANGELOG.md` before pushing your PR. While text may be 
 
 Quick checklist summary before submitting a PR:
 
-* 🔎 Make sure tests are added or updated to accomodate your changes. We do not accept any addition that come without tests. When possible, add tests to verify bug fixes and prevent future regressions.
+* 🔎 Make sure tests are added or updated to accommodate your changes. We do not accept any addition that come without tests. When possible, add tests to verify bug fixes and prevent future regressions.
 * 📖 Check that you provided a CHANGELOG entry documenting your changes (except for documentation improvements)
 * 👌 Verify that tests pass
 * 👍 Push it!
@@ -67,7 +67,7 @@ Thank you for your interest in helping with documentation! Your contributions wi
 
 If you're thinking about adding new operators to RxSwift, please make sure you discuss them via an [issue](https://github.com/ReactiveX/RxSwift/issues) first. RxSwift is a large project, and we're trying to keep its core as compact as possible. We understand the desire to fulfill various kinds of needs, and want to make sure the core serves the majority of developers.
 
-Any operator you need may also be needed by others! But not all operators belong to the RxSwift core. The [RxSwift Commmunity](https://github.com/RxSwiftCommunity/) is home to many projects that may be a better recipient for the improvements you want to bring. In some cases, you may even find that your specific problem is addressed by one of the RxSwiftCommunity project!
+Any operator you need may also be needed by others! But not all operators belong to the RxSwift core. The [RxSwift Community](https://github.com/RxSwiftCommunity/) is home to many projects that may be a better recipient for the improvements you want to bring. In some cases, you may even find that your specific problem is addressed by one of the RxSwiftCommunity project!
 
 Some operators, even though available in the core of other ReactiveX implementations, may be left out of the RxSwift code. Some of them can go into the [RxSwiftExt](https://github.com/RxSwiftCommunity/RxSwiftExt) project, others can be hosted in one of the many satellite community projects.
 

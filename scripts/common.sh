@@ -20,32 +20,34 @@ BOLDCYAN="\033[1m\033[36m"
 BOLDWHITE="\033[1m\033[37m"
 
 # make sure all tests are passing
-
 if [[ `uname` == "Darwin" ]]; then
-    if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.iOS-10-3 | wc -l` -eq 1 ]; then
-    	DEFAULT_IOS_SIMULATOR=RxSwiftTest/iPhone-6/iOS/10.3
-    elif [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.iOS-11-2 | wc -l` -eq 1 ]; then
-    	DEFAULT_IOS_SIMULATOR=RxSwiftTest/iPhone-6/iOS/11.2
-    else
-    	DEFAULT_IOS_SIMULATOR=RxSwiftTest/iPhone-6/iOS/10.0
-    fi
+	echo "🏔 Running iOS 17 / Xcode 15"
 
-    if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.watchOS-3-2 | wc -l` -eq 1 ]; then
-    	DEFAULT_WATCHOS_SIMULATOR=RxSwiftTest/Apple-Watch-38mm/watchOS/3.2
-    elif [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.watchOS-4-2 | wc -l` -eq 1 ]; then
-    	DEFAULT_WATCHOS_SIMULATOR=RxSwiftTest/Apple-Watch-38mm/watchOS/4.2
-    else
-    	DEFAULT_WATCHOS_SIMULATOR=RxSwiftTest/Apple-Watch-38mm/watchOS/3.0
-    fi
+	if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.iOS-17- | wc -l` -ge 1 ]; then
+		DEFAULT_IOS_SIMULATOR=RxSwiftTest/iPhone-15/iOS/17.4
+	else
+		echo "No iOS 17.* Simulator found, available runtimes are:"
+		xcrun simctl list runtimes
+		exit -1
+	fi
 
-    if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.tvOS-10-2 | wc -l` -eq 1 ]; then
-    	DEFAULT_TVOS_SIMULATOR=RxSwiftTest/Apple-TV-1080p/tvOS/10.2
-    elif [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.tvOS-11-2 | wc -l` -eq 1 ]; then
-    	DEFAULT_TVOS_SIMULATOR=RxSwiftTest/Apple-TV-1080p/tvOS/11.2
-    else
-    	DEFAULT_TVOS_SIMULATOR=RxSwiftTest/Apple-TV-1080p/tvOS/10.0
-    fi
+	if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.watchOS-10- | wc -l` -ge 1 ]; then
+		DEFAULT_WATCHOS_SIMULATOR=RxSwiftTest/Apple-Watch-Series-9-45mm/watchOS/10.0
+	else
+		echo "No watchOS 10.* Simulator found, available runtimes are:"
+		xcrun simctl list runtimes
+		exit -1
+	fi
+
+	if [ `xcrun simctl list runtimes | grep com.apple.CoreSimulator.SimRuntime.tvOS-17- | wc -l` -ge 1 ]; then
+		DEFAULT_TVOS_SIMULATOR=RxSwiftTest/Apple-TV-1080p/tvOS/17.0
+	else
+		echo "No tvOS 17.* Simulator found, available runtimes are:"
+		xcrun simctl list runtimes
+		exit -1
+	fi
 fi
+
 RUN_SIMULATOR_BY_NAME=0
 
 function runtime_available() {
@@ -112,7 +114,8 @@ function ensure_simulator_available() {
 
 	SIMULATOR_ID=`simulator_ids "${SIMULATOR}"`
 	echo "Warming up ${SIMULATOR_ID} ..."
-	open -a "Simulator" --args -CurrentDeviceUDID "${SIMULATOR_ID}"
+	xcrun simctl boot "${SIMULATOR_ID}"
+	open -a "Simulator" --args -CurrentDeviceUDID "${SIMULATOR_ID}" || true
 	sleep 120
 }
 
@@ -152,18 +155,18 @@ function action() {
 			echo "Running on ${DESTINATION}"
 		fi
 	else
-		DESTINATION='platform=macOS,arch=x86_64'
+		DESTINATION='platform=macOS'
 	fi
 
 	set -x
 	mkdir -p build
 	killall Simulator || true
-	xcodebuild -workspace "${WORKSPACE}" \
+	LINT=1 xcodebuild -workspace "${WORKSPACE}" \
 		-scheme "${SCHEME}" \
 		-configuration "${CONFIGURATION}" \
 		-derivedDataPath "${BUILD_DIRECTORY}" \
 		-destination "$DESTINATION" \
-		$ACTION | tee build/last-build-output.txt | xcpretty -c
+		$ACTION | tee build/last-build-output.txt | xcbeautify
 	exitIfLastStatusWasUnsuccessful
 	set +x
 }

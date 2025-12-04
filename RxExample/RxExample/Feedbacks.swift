@@ -222,15 +222,15 @@ public func react<State, Query, Event>(
 
 extension ObservableType {
     // This is important to avoid reentrancy issues. Completed event is only used for cleanup
-    fileprivate func takeUntilWithCompletedAsync<O>(_ other: Observable<O>, scheduler: ImmediateSchedulerType) -> Observable<E> {
+    fileprivate func takeUntilWithCompletedAsync<O>(_ other: Observable<O>, scheduler: ImmediateSchedulerType) -> Observable<Element> {
         // this little piggy will delay completed event
-        let completeAsSoonAsPossible = Observable<E>.empty().observeOn(scheduler)
+        let completeAsSoonAsPossible = Observable<Element>.empty().observe(on:scheduler)
         return other
             .take(1)
             .map { _ in completeAsSoonAsPossible }
             // this little piggy will ensure self is being run first
             .startWith(self.asObservable())
-            // this little piggy will ensure that new events are being blocked immediatelly
+            // this little piggy will ensure that new events are being blocked immediately
             .switchLatest()
     }
 }
@@ -268,10 +268,10 @@ extension Observable {
     fileprivate func enqueue(_ scheduler: ImmediateSchedulerType) -> Observable<Element> {
         return self
             // observe on is here because results should be cancelable
-            .observeOn(scheduler.async)
+            .observe(on:scheduler.async)
             // subscribe on is here because side-effects also need to be cancelable
-            // (smooths out any glitches caused by start-cancel immediatelly)
-            .subscribeOn(scheduler.async)
+            // (smooths out any glitches caused by start-cancel immediately)
+            .subscribe(on: scheduler.async)
     }
 }
 
@@ -281,7 +281,7 @@ extension Observable {
  - `events` map events from UI to events of a given system.
  */
 public class Bindings<Event>: Disposable {
-    fileprivate let subscriptions: [Disposable]
+    private let subscriptions: [Disposable]
     fileprivate let events: [Observable<Event>]
 
     /**

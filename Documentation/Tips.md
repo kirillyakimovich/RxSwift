@@ -5,23 +5,23 @@ Tips
 * When you are using Rx, first try to compose built-in operators.
 * If using some combination of operators often, create your convenience operators.
 
-e.g.
-```swift
-extension ObservableType where E: MaybeCool {
+    e.g.
 
-    @warn_unused_result(message="http://git.io/rxs.uo")
-    public func coolElements()
-        -> Observable<E> {
-          return filter { e -> Bool in
-              return e.isCool
-          }
+    ```swift
+    extension ObservableType where E: MaybeCool {
+
+        public func coolElements()
+            -> Observable<E> {
+            return filter { e -> Bool in
+                return e.isCool
+            }
+        }
     }
-}
-```
+    ```
 
-  * Rx operators are as general as possible, but there will always be edge cases that will be hard to model. In those cases you can just create your own operator and possibly use one of the built-in operators as a reference.
+* Rx operators are as general as possible, but there will always be edge cases that will be hard to model. In those cases you can just create your own operator and possibly use one of the built-in operators as a reference.
 
-  * Always use operators to compose subscriptions.
+* Always use operators to compose subscriptions.
 
   **Avoid nesting subscribe calls at all cost. This is a code smell.**
 
@@ -30,9 +30,9 @@ extension ObservableType where E: MaybeCool {
       performURLRequest(text).subscribe(onNext: { result in
           ...
       })
-      .addDisposableTo(disposeBag)
+      .disposed(by: disposeBag)
   })
-  .addDisposableTo(disposeBag)
+  .disposed(by: disposeBag)
   ```
 
   **Preferred way of chaining disposables by using operators.**
@@ -46,5 +46,5 @@ extension ObservableType where E: MaybeCool {
           return performURLRequest(text)
       }
       ...
-      .addDisposableTo(disposeBag) // only one top most disposable
+      .disposed(by: disposeBag) // only one top most disposable
   ```

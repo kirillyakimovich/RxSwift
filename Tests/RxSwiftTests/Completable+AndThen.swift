@@ -25,7 +25,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.andThen(x2.asCompletable()).asObservable()
+            x1.andThen(x2.asCompletable())
         }
 
         XCTAssertEqual(res.events, [
@@ -49,7 +49,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asCompletable()).asObservable()
+            x1.asCompletable().andThen(x2.asCompletable())
         }
 
         XCTAssertEqual(res.events, [
@@ -77,7 +77,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asCompletable()).asObservable()
+            x1.asCompletable().andThen(x2.asCompletable())
         }
 
         XCTAssertEqual(res.events, [
@@ -104,7 +104,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asCompletable()).asObservable()
+            x1.asCompletable().andThen(x2.asCompletable())
         }
 
         XCTAssertEqual(res.events, [
@@ -118,6 +118,70 @@ extension CompletableAndThenTest {
         XCTAssertEqual(x2.subscriptions, [
             Subscription(210, 290)
             ])
+    }
+
+    func testCompletable_FirstCompletableNotRetainedBeyondCompletion() {
+        let scheduler = TestScheduler(initialClock: 0)
+
+        let x: TestableObservable<Never> = scheduler.createHotObservable([
+            .completed(210),
+        ])
+
+        var object = Optional.some(TestObject())
+
+        var completable = x.asCompletable()
+            .do(onCompleted: { [object] in
+                _ = object
+            })
+
+        let disposable = completable
+            .andThen(.never())
+            .subscribe()
+
+        defer {
+            disposable.dispose()
+        }
+
+        // completable has completed by now
+        scheduler.advanceTo(300)
+
+        weak var weakObject = object
+        object = nil
+        completable = .never()
+
+        XCTAssertNil(weakObject)
+    }
+
+    func testCompletable_FirstCompletableNotRetainedBeyondFailure() {
+        let scheduler = TestScheduler(initialClock: 0)
+
+        let x: TestableObservable<Never> = scheduler.createHotObservable([
+            .error(210, TestError.dummyError),
+        ])
+
+        var object = Optional.some(TestObject())
+
+        var completable = x.asCompletable()
+            .do(onCompleted: { [object] in
+                _ = object
+            })
+
+        let disposable = completable
+            .andThen(.never())
+            .subscribe()
+
+        defer {
+            disposable.dispose()
+        }
+
+        // completable has terminated with error by now
+        scheduler.advanceTo(300)
+
+        weak var weakObject = object
+        object = nil
+        completable = .never()
+
+        XCTAssertNil(weakObject)
     }
 
     #if TRACE_RESOURCES
@@ -148,7 +212,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.andThen(x2.asSingle()).asObservable()
+            x1.andThen(x2.asSingle())
         }
 
         XCTAssertEqual(res.events, [
@@ -174,7 +238,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asSingle()).asObservable()
+            x1.asCompletable().andThen(x2.asSingle())
         }
 
         XCTAssertEqual(res.events, [
@@ -205,7 +269,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asSingle()).asObservable()
+            x1.asCompletable().andThen(x2.asSingle())
         }
 
         XCTAssertEqual(res.events, [
@@ -232,7 +296,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asSingle()).asObservable()
+            x1.asCompletable().andThen(x2.asSingle())
         }
 
         XCTAssertEqual(res.events, [
@@ -276,7 +340,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.andThen(x2.asMaybe()).asObservable()
+            x1.andThen(x2.asMaybe())
         }
 
         XCTAssertEqual(res.events, [
@@ -302,7 +366,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asMaybe()).asObservable()
+            x1.asCompletable().andThen(x2.asMaybe())
         }
 
         XCTAssertEqual(res.events, [
@@ -333,7 +397,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asMaybe()).asObservable()
+            x1.asCompletable().andThen(x2.asMaybe())
         }
 
         XCTAssertEqual(res.events, [
@@ -360,7 +424,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asMaybe()).asObservable()
+            x1.asCompletable().andThen(x2.asMaybe())
         }
 
         XCTAssertEqual(res.events, [
@@ -388,7 +452,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.asCompletable().andThen(x2.asMaybe()).asObservable()
+            x1.asCompletable().andThen(x2.asMaybe())
         }
 
         XCTAssertEqual(res.events, [
@@ -432,7 +496,7 @@ extension CompletableAndThenTest {
             ])
 
         let res = scheduler.start {
-            x1.andThen(x2.asObservable()).asObservable()
+            x1.andThen(x2.asObservable())
         }
 
         XCTAssertEqual(res.events, [
@@ -574,4 +638,7 @@ extension CompletableAndThenTest {
             _ = Completable.empty().andThen(Observable<Int>.error(testError)).subscribe()
         }
     #endif
+}
+
+private class TestObject {
 }

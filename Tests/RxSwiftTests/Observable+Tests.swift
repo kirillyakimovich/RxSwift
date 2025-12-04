@@ -11,9 +11,7 @@ import RxCocoa
 import RxTest
 import XCTest
 
-class ObservableTest : RxTest {
-    
-}
+class ObservableTest: RxTest { }
 
 extension ObservableTest {
     func testAnonymousObservable_detachesOnDispose() {
@@ -184,4 +182,124 @@ extension ObservableTest {
             _ = Observable<Int>.empty().asObservable().subscribe()
         }
     #endif
+}
+
+// MARK: - Subscribe with object
+extension ObservableTest {
+    func testSubscribeWithNext() {
+        var testObject: TestObject! = TestObject()
+        let scheduler = TestScheduler(initialClock: 0)
+        var values = [String]()
+        var disposed: UUID?
+        var completed: UUID?
+
+        let observable = scheduler.createColdObservable([
+            .next(10, 0),
+            .next(20, 1),
+            .next(30, 2),
+            .next(40, 3),
+            .completed(50)
+        ])
+        
+        _ = observable
+            .subscribe(
+                with: testObject,
+                onNext: { object, value in values.append(object.id.uuidString + "\(value)") },
+                onCompleted: { completed = $0.id },
+                onDisposed: { disposed = $0.id }
+            )
+        
+        scheduler.start()
+        
+        let uuid = testObject.id
+        XCTAssertEqual(values, [
+            uuid.uuidString + "0",
+            uuid.uuidString + "1",
+            uuid.uuidString + "2",
+            uuid.uuidString + "3"
+        ])
+        
+        XCTAssertEqual(completed, uuid)
+        XCTAssertEqual(disposed, uuid)
+        
+        XCTAssertNotNil(testObject)
+        testObject = nil
+        XCTAssertNil(testObject)
+    }
+}
+
+// MARK: - Deferred
+private class DeferredExpectation {
+    let expectation: XCTestExpectation
+
+    init(expectation: XCTestExpectation) {
+        self.expectation = expectation
+    }
+
+    func bar() -> Observable<Void> {
+        Observable<Void>
+            .deferred {
+                self.expectation.fulfill()
+                return .never()
+            }
+    }
+}
+
+extension ObservableTest {
+    func testDeferredFactoryClosureLifetime() {
+        let factoryClosureInvoked = expectation(description: "Factory closure has been invoked")
+        var foo: DeferredExpectation? = DeferredExpectation(expectation: factoryClosureInvoked)
+        weak var initialFoo = foo
+
+        let disposable = foo?.bar().subscribe()
+
+        wait(for: [factoryClosureInvoked])
+
+        // reset foo to let the initial instance deallocate
+        foo = nil
+
+        // we know that the factory closure has already been executed,
+        // and the foo reference has been nilled, so there should be nothing
+        // keeping the object alive
+        XCTAssertNil(initialFoo)
+
+        disposable?.dispose()
+    }
+
+    func testObservableFactoryClosureLifetime() {
+        class Foo {
+            let expectation: XCTestExpectation
+
+            init(expectation: XCTestExpectation) {
+                self.expectation = expectation
+            }
+
+            func bar() -> Observable<Void> {
+                Observable<Void>
+                    .create { _ in
+                        self.expectation.fulfill()
+                        return Disposables.create()
+                    }
+            }
+        }
+
+        let factoryClosureInvoked = expectation(description: "Factory closure has been invoked")
+        var foo: Foo? = Foo(expectation: factoryClosureInvoked)
+        weak var initialFoo = foo
+
+        let disposable = foo?.bar().subscribe()
+
+        wait(for: [factoryClosureInvoked])
+
+        // reset foo to let the initial instance deallocate
+        foo = nil
+
+        XCTAssertNil(initialFoo)
+
+        disposable?.dispose()
+    }
+}
+
+private class TestObject: NSObject {
+    var id = UUID()
 }
